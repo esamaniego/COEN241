@@ -65,22 +65,28 @@ public class Client {
 	static void ConnectToServer(String servername, int port, String command) throws Exception{
 		
         String commandArg = (command.substring(command.indexOf(' ') + 1)).trim();
-        command = (command.substring(0, command.indexOf(' '))).trim().toLowerCase();
+        String commandKeyword = (command.substring(0, command.indexOf(' '))).trim().toLowerCase();
         
         String username = "";
     	String filename = "";
     	String newfilename = "";
+
     	
-    	if (command.startsWith("upload") || command.startsWith("download") || command.startsWith("delete")){
+    	if (commandKeyword.startsWith("upload") || commandKeyword.startsWith("download") || commandKeyword.startsWith("delete")){
         	username = (commandArg.substring(0,commandArg.indexOf('/'))).trim();
         	filename = (commandArg.substring(commandArg.indexOf('/') + 1)).trim();
+        	
         }
     	
-		File myFile = new File(filename);
-		if (!myFile.exists()){
-			System.out.println("File " + filename + " does not exists");
-			System.exit(1);
-		}
+    	if (commandKeyword.startsWith("upload")) {
+    		File checkFile = new File(filename);
+    		if (!checkFile.exists()){
+    			System.out.println("File " + filename + " does not exists");
+    			System.exit(1);
+    		}	
+    	}
+    	
+
   
 		Socket sock = new Socket (servername, port);	
 		
@@ -93,7 +99,7 @@ public class Client {
 
 		
 		if (command.startsWith("upload")) {
-			//File myFile = new File(filename);
+			File myFile = new File(filename);
 			byte[] mybytearray = new byte[(int) myFile.length()];        
 			FileInputStream fis = new FileInputStream(myFile);
 			BufferedInputStream bis = new BufferedInputStream(fis);         
