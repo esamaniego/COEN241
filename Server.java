@@ -1,12 +1,17 @@
 //import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.security.MessageDigest;
 
 public class Server {
 	
@@ -53,7 +58,7 @@ public class Server {
 	    	diskList.add(args[i+1]);
 	    }
 	    
-	    partitionMapping = new String[numPartitions][3];
+	    partitionMapping = new String[numPartitions][4];
 	    mapPartitionToDrives();
 	    	        	    
 	    
@@ -184,11 +189,20 @@ public class Server {
 	static void UploadCommand(String filename, long fsize){
 		long fileHashNum = FilenameHash(filename);	
 		int neededPartition = (int)(Math.ceil(fsize/partitionSize));
+		String checkSumString="";
+		
+		try {
+			checkSumString = GetCheckSum("/tmp/" + filename);
+			System.out.println("Checksum: " + checkSumString);
+		} catch (Exception e) {
+			System.out.println("FileIO exception");
+			e.printStackTrace();
+		}
 		
 		boolean containsItem = fileList.contains(filename);
 		if (!containsItem){
 			fileList.add(filename);
-			SaveToPartition(filename, fileHashNum, neededPartition);
+			SaveToPartition(filename, fileHashNum, neededPartition, checkSumString);
 		} else {
 			//-->Update existing file
 		}
@@ -368,7 +382,7 @@ public class Server {
 	    
 	}
 	
-	static void SaveToPartition (String filename, long hash, int neededPartition){
+	static void SaveToPartition (String filename, long hash, int neededPartition, String checkSumString){
 		int zeroBasedNumPartition = numPartitions - 1;
 		long temp =  hash % zeroBasedNumPartition;
 		int partitionIndex = (int)temp;
@@ -389,6 +403,7 @@ public class Server {
 			}
 			partitionMapping[partitionIndex][0]=filename;	//column 0 gets the filename
 			partitionMapping[partitionIndex][2]="replicate 1";  //column 2 gets either replicate 1 or replicate 2
+			partitionMapping[partitionIndex][3]=checkSumString;  //column 3 get the checksum
 			//--> add to disk function
 			
 //			boolean containsItem = fileList.contains(filename);
@@ -396,7 +411,7 @@ public class Server {
 //				fileList.add(filename);
 //			}
 			String diskSaved = partitionMapping[partitionIndex][1];  //column 1 gets the disk where file is saved
-			ReplicateToPartition(filename, diskSaved, partitionIndex);
+			ReplicateToPartition(filename, diskSaved, partitionIndex, checkSumString);
 			
 
 			partitionIndex++;
@@ -408,7 +423,7 @@ public class Server {
 	}
 	
 	
-	static void ReplicateToPartition (String filename, String diskSaved, int partitionIndex){
+	static void ReplicateToPartition (String filename, String diskSaved, int partitionIndex, String checkSumString){
 		
 	
 		int zeroBasedNumPartition = numPartitions - 1;
@@ -438,8 +453,8 @@ public class Server {
 		}
 		partitionMapping[replicatePartitionIndex][0]=filename;
 		partitionMapping[replicatePartitionIndex][2]="replicate 2";
+		partitionMapping[replicatePartitionIndex][3]=checkSumString;
 		//--> add to disk function
-		//--> need to assign partitionMapping[1]?
 		
 	}
 	
@@ -460,11 +475,35 @@ public class Server {
 		
 	}
 	
+	static String GetCheckSum(String datafile) throws Exception{
+
+		MessageDigest md = MessageDigest.getInstance("SHA1");
+		FileInputStream fis = new FileInputStream(datafile);
+		byte[] dataBytes = new byte[1024];
+		 
+		int nread = 0; 
+		 
+		while ((nread = fis.read(dataBytes)) != -1) {
+			md.update(dataBytes, 0, nread);
+		}
+		 
+		byte[] mdbytes = md.digest();
+		 
+		//convert the byte to hex format
+		StringBuffer sb = new StringBuffer("");
+		for (int i = 0; i < mdbytes.length; i++) {
+			sb.append(Integer.toString((mdbytes[i] & 0xff) + 0x100, 16).substring(1));
+		}
+		 
+		//System.out.println("Digest(in hex format):: " + sb.toString());	 
+		return sb.toString();
+	}
+	
 
 	static void MyView(){
 		//--> Delete clean up
 		for (int i=0; i < numPartitions; i ++){
-			System.out.println(partitionMapping[i][0] + "  " + partitionMapping[i][1] + "  " + partitionMapping[i][2]);
+			System.out.println(partitionMapping[i][0] + "  " + partitionMapping[i][1] + "  " + partitionMapping[i][2] + "  " + partitionMapping[i][3]);
 		}
 		
 	}
