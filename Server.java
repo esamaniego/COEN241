@@ -65,22 +65,8 @@ public class Server {
 	         
 	        DataInputStream clientData = new DataInputStream(in); 
 	         
-	        String command = clientData.readUTF(); 
+	        String command = (clientData.readUTF()).trim(); 
 	        	        
-	        if (command.indexOf(' ') == -1){
-	        	System.out.println("Improper command. Argument is missing argument. Usage is: ");
-	    		System.out.println("	download <user/object>");
-	    		System.out.println("	list <user>");
-	    		System.out.println("	upload <user/object>");
-	    		System.out.println("	delete <user/object>");
-	    		System.out.println("	add <disk>");
-	    		System.out.println("	remove <disk>");
-	    		System.out.println("");
-	    		System.out.println("");
-	    		command = clientData.readUTF(); 
-	    		//System.exit(1);
-	    		
-	        }
 	        
 	        String commandArg = (command.substring(command.indexOf(' ') + 1)).trim();	        
 	        command = (command.substring(0, command.indexOf(' '))).trim().toLowerCase();
@@ -121,7 +107,7 @@ public class Server {
 	        } else if (command.startsWith("upload")){
 	        	UploadCommand(newfilename,fileSize);
 	        } else if (command.startsWith("delete")){
-	        	DeleteCommand(commandArg);
+	        	DeleteCommand(newfilename);
 	        } else if (command.startsWith("add")){
 	        	AddCommand(commandArg);
 	        } else if (command.startsWith("remove")){

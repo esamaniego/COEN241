@@ -26,6 +26,15 @@ public class Client {
 		  
 		String servername = args[0];
 		String command = Display();
+		command = command.trim();
+		
+
+		while ((command.indexOf(' ') == -1) || (((command.startsWith("upload") || command.startsWith("download") || command.startsWith("delete"))) && (command.indexOf('/') == -1))){
+			System.out.println("");
+			System.out.println("Invalid command format: " + command);
+			command = Display();
+			command = command.trim();
+		}
 	
 		try {
 			ConnectToServer(servername, port, command);
