@@ -63,9 +63,18 @@ public class Client {
         
         String commandArg = (command.substring(command.indexOf(' ') + 1)).trim();
         command = (command.substring(0, command.indexOf(' '))).trim().toLowerCase();
+        
+        String username = "";
+    	String filename = "";
+    	String newfilename = "";
+    	
+    	if (command.startsWith("upload") || command.startsWith("download") || command.startsWith("delete")){
+        	username = (commandArg.substring(0,commandArg.indexOf('/'))).trim();
+        	filename = (commandArg.substring(commandArg.indexOf('/') + 1)).trim();
+        }
 		
 		if (command.startsWith("upload")) {
-			File myFile = new File(commandArg);
+			File myFile = new File(filename);
 		    byte[] mybytearray = new byte[(int) myFile.length()];        
 	        FileInputStream fis = new FileInputStream(myFile);
 	        BufferedInputStream bis = new BufferedInputStream(fis);         
@@ -83,4 +92,3 @@ public class Client {
 		
 	}
 }
-
