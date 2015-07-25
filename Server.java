@@ -1,3 +1,4 @@
+//import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -65,12 +66,38 @@ public class Server {
 	        DataInputStream clientData = new DataInputStream(in); 
 	         
 	        String command = clientData.readUTF(); 
-	        String commandArg = (command.substring(command.indexOf(' ') + 1)).trim();
+	        	        
+	        if (command.indexOf(' ') == -1){
+	        	System.out.println("Improper command. Argument is missing argument. Usage is: ");
+	    		System.out.println("	download <user/object>");
+	    		System.out.println("	list <user>");
+	    		System.out.println("	upload <user/object>");
+	    		System.out.println("	delete <user/object>");
+	    		System.out.println("	add <disk>");
+	    		System.out.println("	remove <disk>");
+	    		System.out.println("");
+	    		System.out.println("");
+	    		command = clientData.readUTF(); 
+	    		//System.exit(1);
+	    		
+	        }
+	        
+	        String commandArg = (command.substring(command.indexOf(' ') + 1)).trim();	        
 	        command = (command.substring(0, command.indexOf(' '))).trim().toLowerCase();
+	        String username = "";
+        	String filename = "";
+        	String newfilename = "";
+	        
+	        
+	        if (command.startsWith("upload") || command.startsWith("download") || command.startsWith("delete")){
+	        	username = (commandArg.substring(0,commandArg.indexOf('/'))).trim();
+	        	filename = (commandArg.substring(commandArg.indexOf('/') + 1)).trim();
+	        	newfilename = "_".concat(username).concat("_").concat(filename);
+	        }
 
 	        if (command.startsWith("upload")){
 		        //OutputStream output = new FileOutputStream(fileName);  
-		        OutputStream output = new FileOutputStream("/tmp/a.txt");
+		        OutputStream output = new FileOutputStream("/tmp/" + newfilename);
 		        long size = clientData.readLong();
 		        fileSize = size;
 		        byte[] buffer = new byte[1024];   
@@ -88,11 +115,11 @@ public class Server {
 	        //implement command actions here
 	        //
 	        if (command.startsWith("download")){
-	        	DownloadCommand(commandArg);
+	        	DownloadCommand(newfilename);
 	        } else if (command.startsWith("list")){
 	        	ListCommand();
 	        } else if (command.startsWith("upload")){
-	        	UploadCommand(commandArg,fileSize);
+	        	UploadCommand(newfilename,fileSize);
 	        } else if (command.startsWith("delete")){
 	        	DeleteCommand(commandArg);
 	        } else if (command.startsWith("add")){
@@ -100,6 +127,7 @@ public class Server {
 	        } else if (command.startsWith("remove")){
 	        	RemoveCommand(commandArg);
 	        } else {
+	        	MyView();
 	        	System.out.println("Unknown command: " + command + ". Unable to process");
 	        	System.out.println("");
 	        }
@@ -171,8 +199,14 @@ public class Server {
 		long fileHashNum = FilenameHash(filename);	
 		int neededPartition = (int)(Math.ceil(fsize/partitionSize));
 		
+		boolean containsItem = fileList.contains(filename);
+		if (!containsItem){
+			fileList.add(filename);
+			SaveToPartition(filename, fileHashNum, neededPartition);
+		} else {
+			//-->Update existing file
+		}
 		
-		SaveToPartition(filename, fileHashNum, neededPartition);
 		DisplayObject(filename);		
 	}
 	
@@ -367,13 +401,15 @@ public class Server {
 				}
 					
 			}
-			partitionMapping[partitionIndex][0]=filename;
-			partitionMapping[partitionIndex][2]="replicate 1";
-			boolean containsItem = fileList.contains(filename);
-			if (!containsItem){
-				fileList.add(filename);
-			}
-			String diskSaved = partitionMapping[partitionIndex][1];
+			partitionMapping[partitionIndex][0]=filename;	//column 0 gets the filename
+			partitionMapping[partitionIndex][2]="replicate 1";  //column 2 gets either replicate 1 or replicate 2
+			//--> add to disk function
+			
+//			boolean containsItem = fileList.contains(filename);
+//			if (!containsItem){
+//				fileList.add(filename);
+//			}
+			String diskSaved = partitionMapping[partitionIndex][1];  //column 1 gets the disk where file is saved
 			ReplicateToPartition(filename, diskSaved, partitionIndex);
 			
 
@@ -416,22 +452,35 @@ public class Server {
 		}
 		partitionMapping[replicatePartitionIndex][0]=filename;
 		partitionMapping[replicatePartitionIndex][2]="replicate 2";
+		//--> add to disk function
+		//--> need to assign partitionMapping[1]?
 		
 	}
 	
 	static void DisplayObject(String filename){
 		String partitionValue;
 		System.out.println("");
+		boolean found = false;
 		for (int i=0; i < numPartitions; i ++){
 			partitionValue = partitionMapping[i][0];
 			if (partitionValue != null && partitionValue.equals(filename)){
 				System.out.println(partitionMapping[i][2] + ": partition " + i + " at disk " + partitionMapping[i][1]);
+				found = true;
 			}
+		}
+		if (!found){
+			System.out.println("File " + filename + " does not exists");
 		}
 		
 	}
 	
 
+	static void MyView(){
+		//--> Delete clean up
+		for (int i=0; i < numPartitions; i ++){
+			System.out.println(partitionMapping[i][0] + "  " + partitionMapping[i][1] + "  " + partitionMapping[i][2]);
+		}
+		
+	}
 
 }
-
