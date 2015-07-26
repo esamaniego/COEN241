@@ -20,12 +20,14 @@ public class Server {
     static String[][] partitionMapping;
     //static String[] diskMapping;
     static ArrayList<String> diskList;
+    static ArrayList<String> portList;
     static ArrayList<String> fileList;
 	
 	public static void main(String[] args) throws IOException {
 		  
-		if (args.length < 3) {
-			System.out.println("There should be at least three arguments: a partition power and at least two disk drives." );
+		if (args.length < 5) {
+			System.out.println("There should be at least five arguments: a partition power and at least two disk drives with their corresponding ports." );
+			System.out.println("Sample Usage: java Server 4 129.210.16.87 42598 129.210.16.88 33443");
 			System.exit(1);
 		}
 		  
@@ -51,14 +53,16 @@ public class Server {
 	    
 	    int diskCount = args.length - 1;
 	    diskList = new ArrayList<String>();
+	    portList = new ArrayList<String>();
 	    fileList = new ArrayList<String>();
 	    
 
-	    for (int i=0; i < diskCount; i++){
+	    for (int i=0; i < diskCount; i=i+2){
 	    	diskList.add(args[i+1]);
+	    	portList.add(args[i+2]);
 	    }
 	    
-	    partitionMapping = new String[numPartitions][4];
+	    partitionMapping = new String[numPartitions][5];
 	    mapPartitionToDrives();
 	    	        	    
 	    
@@ -193,7 +197,6 @@ public class Server {
 		
 		try {
 			checkSumString = GetCheckSum("/tmp/" + filename);
-			System.out.println("Checksum: " + checkSumString);
 		} catch (Exception e) {
 			System.out.println("FileIO exception");
 			e.printStackTrace();
@@ -368,6 +371,7 @@ public class Server {
 		
 		for (int i=0; i < numPartitions; i++){
 			partitionMapping[i][1] = diskList.get(diskIndex);
+			partitionMapping[i][4] = portList.get(diskIndex);
 
 			partionMemCounter++;
 
@@ -378,9 +382,9 @@ public class Server {
 				}
 			}
 		}
-				
-	    
+					    
 	}
+	
 	
 	static void SaveToPartition (String filename, long hash, int neededPartition, String checkSumString){
 		int zeroBasedNumPartition = numPartitions - 1;
@@ -502,8 +506,21 @@ public class Server {
 
 	static void MyView(){
 		//--> Delete clean up
+		for (String s : diskList)
+			System.out.println(s);
+		
+		System.out.println("");
+		
+		for (String s : portList)
+			System.out.println(s);
+		
+		System.out.println("");
+		
+		
+		
+		
 		for (int i=0; i < numPartitions; i ++){
-			System.out.println(partitionMapping[i][0] + "  " + partitionMapping[i][1] + "  " + partitionMapping[i][2] + "  " + partitionMapping[i][3]);
+			System.out.println(partitionMapping[i][0] + "  " + partitionMapping[i][1] + "  " + partitionMapping[i][2] + "  " + partitionMapping[i][3]  + "  " + partitionMapping[i][4]);
 		}
 		
 	}
