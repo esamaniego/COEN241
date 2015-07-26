@@ -136,7 +136,7 @@ public class Server {
 	        	RemoveCommand(commandArg);
 	        } else {
 	        	MyView();
-	        	System.out.println("Unknown command: " + command + ". Unable to process");
+	        	//System.out.println("Unknown command: " + command + ". Unable to process");
 	        	System.out.println("");
 	        }
        
@@ -211,6 +211,7 @@ public class Server {
 		for (String str : fileList) {
 			System.out.println("  " + str);
 		}
+		System.out.println("");
 	}
 	
 	
@@ -342,7 +343,7 @@ public class Server {
 				numPartitionForEachDrive--;
 				extra--;
 			
-				if (extra < 0){  //the extra partions will be given up by disk[0]
+				if (extra < 0){  //the extra partitions will be given up by disk[0]
 					if (index == (diskList.size()-1)){
 						index = 0;
 					} else {
@@ -361,14 +362,68 @@ public class Server {
 	
 	
 	static void RemoveCommand(String disk){
+		System.out.println("Processing remove disk...");
 		String assignedDrive;
+		String filename;
 		int index = 0;
-		diskList.remove(disk);
-		for (int i=0; i < numPartitions; i ++){
+		//diskList.remove(disk);  //remove the disk from the list
+		int arraylistIndex = diskList.indexOf(disk);
+		diskList.remove(arraylistIndex);
+		portList.remove(arraylistIndex);
+				
+		
+		for (int i=0; i < numPartitions; i ++){  //if equals to the disk to be removed, update the disk assignment by alternating between the remaining disk on the ist.
 			assignedDrive = partitionMapping[i][1];
-			if (assignedDrive.equals(disk)){
-				partitionMapping[i][1] = diskList.get(index);
+			
+			if (assignedDrive.equals(disk)){  //affected partition. Process it
+				
+				if(partitionMapping[i][0] != null){  //partition is not empty. need to move the file.
+					String currentCheckSum = partitionMapping[i][3];
+					String currentReplicaDesc = partitionMapping[i][2];
+					
+					String replicaDisk = FindReplicaDisk(currentCheckSum, currentReplicaDesc);
+					System.out.println("The other copy is in disk " + replicaDisk);
+					
+					if (replicaDisk.equals(diskList.get(index))){
+						System.out.println("replica is in the same disk, incrementing");
+						if (index == (diskList.size()-1)){
+							index = 0;
+						} else {
+							index++;
+						}
+					}
+					
+					//Move from old disk to new disk
+					filename = partitionMapping[i][0];
+					try {
+						CopyFromDisk(filename, partitionMapping[i][1], Integer.parseInt(partitionMapping[i][4]), partitionMapping[i][2]);
+					} catch (NumberFormatException e) {
+						e.printStackTrace();
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+	
+					File oldName = new File("/tmp/" + filename + "_tmp");  //file from the soon to be removed disk
+					File newName = new File("/tmp/" + filename);
+					if (newName.exists()) {
+					    newName.delete();
+					}
+					oldName.renameTo(newName);
+					
+					try {
+						CopyToDisk(filename, diskList.get(index), Integer.parseInt(portList.get(index)));
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
+				//end of start of non-empty partition
+						
+				
+				//Update mapping table
+				partitionMapping[i][1] = diskList.get(index); 
+				partitionMapping[i][4] = portList.get(index);
 
+				
 				if (index == (diskList.size()-1)){
 					index = 0;
 				} else {
@@ -377,10 +432,11 @@ public class Server {
 			}
 		}
 		
-		
+		System.out.println("");
 		for (int i=0; i < numPartitions; i ++){
 			System.out.println("partion: " + i + " " + partitionMapping[i][1] + "   "  + partitionMapping[i][0] );
 		}
+		System.out.println("");
 	}
 	
 	
@@ -685,8 +741,21 @@ public class Server {
 		System.out.println("");
 	}
 	
+	static String FindReplicaDisk (String checkSum, String replicaDesc){
+		String disk = "";
+		for (int i=0; i < numPartitions; i ++){
+			if (partitionMapping[i][3] != null){
+				if(partitionMapping[i][3].equals(checkSum) && !(partitionMapping[i][2].equals(replicaDesc)) ){
+					disk = partitionMapping[i][1];
+					break;
+				}
+			}
+		}
+		return disk;
+	}
+
 	static void MyView(){
-		//--> Delete clean up
+		System.out.println("Secret command. For debugging purposes");
 		for (String s : diskList)
 			System.out.println(s);
 		
