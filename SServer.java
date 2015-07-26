@@ -17,6 +17,7 @@ public class SServer {
 		
 		int port = findPort();
 		System.out.println("Port number is: " + port);
+		System.out.println("");
 		
 		ServerSocket serverSocket = new ServerSocket(port);
 		int bytesRead;
@@ -32,11 +33,9 @@ public class SServer {
 	        
 	        String command = clientData.readUTF(); 
 	        String commandArg = (command.substring(command.indexOf(' ') + 1)).trim();
-	        //commandArg will have to be flattened
 	        command = (command.substring(0, command.indexOf(' '))).trim().toLowerCase();
 	        
-	        if (command.startsWith("upload")){
-		        //OutputStream output = new FileOutputStream(fileName);  
+	        if (command.startsWith("upload")){ 
 		        OutputStream output = new FileOutputStream("/tmp/" + commandArg);
 		        long size = clientData.readLong();
 		        fileSize = (int)size;
@@ -47,6 +46,8 @@ public class SServer {
 		            size -= bytesRead;   
 		        }
 		        output.close();
+		        System.out.println("File " + commandArg + " uploaded");
+		        System.out.println("");
 	        }//end upload
 	        
 	        else if (command.startsWith("download")){
