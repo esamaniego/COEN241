@@ -3,7 +3,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
+//import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.Scanner;
@@ -30,7 +30,7 @@ public class Client {
 		command = command.trim();
 		
 
-		while ((command.indexOf(' ') == -1) || (((command.startsWith("upload") || command.startsWith("download") || command.startsWith("delete"))) && (command.indexOf('/') == -1))){
+		while ((command.indexOf(' ') == -1) || (((command.startsWith("add") || command.startsWith("remove") || command.startsWith("upload") || command.startsWith("download") || command.startsWith("delete"))) && (command.indexOf('/') == -1))){
 			System.out.println("");
 			System.out.println("Invalid command format: " + command);
 			command = Display();
@@ -55,8 +55,8 @@ public class Client {
 		System.out.println("	list <user>");
 		System.out.println("	upload <user/object>");
 		System.out.println("	delete <user/object>");
-		System.out.println("	add <disk>");
-		System.out.println("	remove <disk>");
+		System.out.println("	add <disk/port>");
+		System.out.println("	remove <disk/port>");
 		System.out.print("Enter a command: ");
 	    String s = in.nextLine();
 	    return s;
@@ -67,14 +67,28 @@ public class Client {
         String commandArg = (command.substring(command.indexOf(' ') + 1)).trim();
         String commandKeyword = (command.substring(0, command.indexOf(' '))).trim().toLowerCase();
         
-        String username = "";
+        //String username = "";
     	String filename = "";
-    	String newfilename = "";
+    	//String newfilename = "";
+    	String strPort;
 
     	
     	if (commandKeyword.startsWith("upload") || commandKeyword.startsWith("download") || commandKeyword.startsWith("delete")){
-        	username = (commandArg.substring(0,commandArg.indexOf('/'))).trim();
+        	//String username = (commandArg.substring(0,commandArg.indexOf('/'))).trim();
         	filename = (commandArg.substring(commandArg.indexOf('/') + 1)).trim();
+        	
+        }
+    	
+    	if (commandKeyword.startsWith("add") || commandKeyword.startsWith("remove")){
+        	strPort = (commandArg.substring(commandArg.indexOf('/') + 1)).trim();
+    		int intPort=0;
+    		
+    		try {
+    			intPort = Integer.parseInt(strPort);
+    		} catch (NumberFormatException err){
+    			System.out.println("Error: Entered port is not an integer.");
+    			System.exit(1);
+    		}
         	
         }
     	
@@ -107,12 +121,14 @@ public class Client {
 			dis.readFully(mybytearray, 0, mybytearray.length);
 			dos.writeLong(mybytearray.length);   
 			dos.write(mybytearray, 0, mybytearray.length); 
+			dis.close();
 
 		}
       
         dos.flush();  
 
         //Closing socket
+       
         dos.close();
         os.close();
         sock.close();
