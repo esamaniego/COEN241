@@ -11,6 +11,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -120,7 +121,12 @@ public class Server {
 	        } else if (command.startsWith("upload")){
 	        	UploadCommand(newfilename,fileSize);
 	        } else if (command.startsWith("delete")){
-	        	DeleteCommand(newfilename);
+	        	try {
+					DeleteCommand(newfilename);
+				} catch (Exception e) {
+					System.out.println("Exception: " + e);
+					e.printStackTrace();
+				}
 	        } else if (command.startsWith("add")){
 	        	AddCommand(commandArg);
 	        } else if (command.startsWith("remove")){
@@ -165,13 +171,23 @@ public class Server {
 	}
 
 	
-	static void DeleteCommand(String filename){
+	static void DeleteCommand(String filename)throws Exception{
 		String partitionValue;
 		
 		for (int i=0; i < numPartitions; i ++){
 			partitionValue = partitionMapping[i][0];
 			if (partitionValue != null && partitionValue.equals(filename)){
 				partitionMapping[i][0] = null;
+				partitionMapping[i][2] = null;
+				partitionMapping[i][3] = null;
+				
+				Socket toDriveSock;
+				toDriveSock = new Socket(partitionMapping[i][1], Integer.parseInt(partitionMapping[i][4]));
+				OutputStream toDriveOs = toDriveSock.getOutputStream();
+				DataOutputStream toDriveDos = new DataOutputStream(toDriveOs);
+				toDriveDos.writeUTF("delete " + filename);
+				
+				
 				System.out.println("File " + filename + " has been deleted");
 			}
 		}
@@ -498,7 +514,7 @@ public class Server {
 	
 	static void DisplayObject(String filename){
 		String partitionValue;
-		System.out.println("");
+
 		boolean found = false;
 		for (int i=0; i < numPartitions; i ++){
 			partitionValue = partitionMapping[i][0];
@@ -510,7 +526,7 @@ public class Server {
 		if (!found){
 			System.out.println("File " + filename + " does not exists");
 		}
-		
+		System.out.println("");		
 	}
 	
 	static String GetCheckSum(String datafile) throws Exception{

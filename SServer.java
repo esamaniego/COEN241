@@ -60,6 +60,17 @@ public class SServer {
 		        dos.writeLong(mybytearray.length);   
 		        dos.write(mybytearray, 0, mybytearray.length);       	
 	        }//end else download
+	        
+	        else if (command.startsWith("delete")){ 
+	        	File myFile = new File("/tmp/" + commandArg);
+	        	
+	        	if(myFile.delete()){
+	    			System.out.println(myFile.getName() + " is deleted!");
+	    		}else{
+	    			System.out.println("Delete operation is failed.");
+	    		}
+	        	System.out.println("");
+	        }//end else delete
 	       
 	        clientData.close();
 	        in.close();
