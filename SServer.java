@@ -21,7 +21,7 @@ public class SServer {
 		
 		ServerSocket serverSocket = new ServerSocket(port);
 		int bytesRead;
-		int fileSize=0;
+		//int fileSize=0;
 		
 		while(true){
 			Socket clientSocket = null;
@@ -38,7 +38,7 @@ public class SServer {
 	        if (command.startsWith("upload")){ 
 		        OutputStream output = new FileOutputStream("/tmp/" + commandArg);
 		        long size = clientData.readLong();
-		        fileSize = (int)size;
+		        //fileSize = (int)size;
 		        byte[] buffer = new byte[1024];   
 		        while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int)Math.min(buffer.length, size))) != -1)   
 		        {   
@@ -46,7 +46,7 @@ public class SServer {
 		            size -= bytesRead;   
 		        }
 		        output.close();
-		        System.out.println("File " + commandArg + " uploaded");
+		        System.out.println("File " + commandArg + " copied from server");
 		        System.out.println("");
 	        }//end upload
 	        
@@ -58,7 +58,10 @@ public class SServer {
 		        DataInputStream dis = new DataInputStream(bis);   
 		        dis.readFully(mybytearray, 0, mybytearray.length);
 		        dos.writeLong(mybytearray.length);   
-		        dos.write(mybytearray, 0, mybytearray.length);       	
+		        dos.write(mybytearray, 0, mybytearray.length);     
+		        dis.close();
+		        System.out.println("File " + commandArg + " sent to server");
+		        System.out.println("");
 	        }//end else download
 	        
 	        else if (command.startsWith("delete")){ 

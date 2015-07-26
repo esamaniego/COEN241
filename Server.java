@@ -4,18 +4,18 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
+//import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.UnknownHostException;
+//import java.net.UnknownHostException;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+//import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.security.MessageDigest;
+//import java.security.MessageDigest;
 
 public class Server {
 	
@@ -236,7 +236,27 @@ public class Server {
 	
 	
 	static void DownloadCommand(String filename){
-		DisplayObject(filename);
+		//DisplayObject(filename);
+		String currentFileName = "";
+		for (int i=0; i < numPartitions; i ++){
+			currentFileName = partitionMapping[i][0];
+			if (currentFileName != null && currentFileName.equals(filename)){
+				try {
+					CopyFromDisk(filename, partitionMapping[i][1], Integer.parseInt(partitionMapping[i][4]), partitionMapping[i][2].substring(partitionMapping[i][2].length() - 1));
+				} catch (NumberFormatException e) {
+					System.out.println("NumberFormatException " + e);
+					e.printStackTrace();
+				} catch (Exception e) {
+					System.out.println("Exception " + e);
+					e.printStackTrace();
+				}
+			}
+		}//end for loop
+		
+		//both copy of files should have been downloaded to proxy. Do a checksum on both files.
+		//Update disk copy if necessary
+		//display file
+		
 	}
 	
 	
@@ -578,7 +598,27 @@ public class Server {
 		
 	}
 
- 	static void MyView(){
+	static void CopyFromDisk(String filename, String drive, int port, String replica) throws Exception{
+		Socket fromDriveSock = new Socket (drive, port);
+		OutputStream fromDriveOs = fromDriveSock.getOutputStream();
+		DataOutputStream fromDriveDos = new DataOutputStream(fromDriveOs);
+		fromDriveDos.writeUTF("download " + filename);
+		InputStream fromDriveIs = fromDriveSock.getInputStream();
+		int fromDriveBytesRead;
+		OutputStream fromDriveOutput = new FileOutputStream("/tmp/" + filename + "_" + replica);
+		DataInputStream fromDriveClientData = new DataInputStream(fromDriveIs);
+		long size = fromDriveClientData.readLong();
+		byte[] fromDriveBuffer = new byte[1024];
+		while (size > 0 && (fromDriveBytesRead = fromDriveClientData.read(fromDriveBuffer, 0, (int)Math.min(fromDriveBuffer.length, size))) != -1) {
+			fromDriveOutput.write(fromDriveBuffer, 0, fromDriveBytesRead);
+			size -= fromDriveBytesRead;
+		}
+		fromDriveOutput.close();
+		System.out.println("File " + filename + " copied from disk " + drive);
+		System.out.println("");
+	}
+	
+	static void MyView(){
 		//--> Delete clean up
 		for (String s : diskList)
 			System.out.println(s);
