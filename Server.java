@@ -1,5 +1,8 @@
 //import java.io.BufferedOutputStream;
+import java.io.BufferedInputStream;
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -27,7 +30,7 @@ public class Server {
 		  
 		if (args.length < 5) {
 			System.out.println("There should be at least five arguments: a partition power and at least two disk drives with their corresponding ports." );
-			System.out.println("Sample Usage: java Server 4 129.210.16.87 42598 129.210.16.88 33443");
+			System.out.println("Sample usage: java Server 4 129.210.16.87 42598 129.210.16.88 33443");
 			System.exit(1);
 		}
 		  
@@ -205,7 +208,7 @@ public class Server {
 		boolean containsItem = fileList.contains(filename);
 		if (!containsItem){
 			fileList.add(filename);
-			SaveToPartition(filename, fileHashNum, neededPartition, checkSumString);
+			SaveToPartitionMappingTable(filename, fileHashNum, neededPartition, checkSumString);
 		} else {
 			//-->Update existing file
 		}
@@ -386,7 +389,7 @@ public class Server {
 	}
 	
 	
-	static void SaveToPartition (String filename, long hash, int neededPartition, String checkSumString){
+	static void SaveToPartitionMappingTable (String filename, long hash, int neededPartition, String checkSumString){
 		int zeroBasedNumPartition = numPartitions - 1;
 		long temp =  hash % zeroBasedNumPartition;
 		int partitionIndex = (int)temp;
@@ -408,14 +411,25 @@ public class Server {
 			partitionMapping[partitionIndex][0]=filename;	//column 0 gets the filename
 			partitionMapping[partitionIndex][2]="replicate 1";  //column 2 gets either replicate 1 or replicate 2
 			partitionMapping[partitionIndex][3]=checkSumString;  //column 3 get the checksum
-			//--> add to disk function
+			
+			
 			
 //			boolean containsItem = fileList.contains(filename);
 //			if (!containsItem){
 //				fileList.add(filename);
 //			}
-			String diskSaved = partitionMapping[partitionIndex][1];  //column 1 gets the disk where file is saved
-			ReplicateToPartition(filename, diskSaved, partitionIndex, checkSumString);
+			
+			String diskSaved = partitionMapping[partitionIndex][1];  
+			int portSaved = Integer.parseInt(partitionMapping[partitionIndex][4]);
+			
+			try {
+				CopyToDisk(filename, diskSaved, portSaved);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			
+			
+			ReplicateToPartitionMappingTable(filename, diskSaved, partitionIndex, checkSumString);
 			
 
 			partitionIndex++;
@@ -427,7 +441,7 @@ public class Server {
 	}
 	
 	
-	static void ReplicateToPartition (String filename, String diskSaved, int partitionIndex, String checkSumString){
+	static void ReplicateToPartitionMappingTable (String filename, String diskSaved, int partitionIndex, String checkSumString){
 		
 	
 		int zeroBasedNumPartition = numPartitions - 1;
@@ -447,9 +461,7 @@ public class Server {
 			partitionValue = partitionMapping[replicatePartitionIndex][1];
 			
 			if (replicatePartitionIndex >= zeroBasedNumPartition){
-				System.out.println("replicate index: " + replicatePartitionIndex);
-				replicatePartitionIndex = replicatePartitionIndex % zeroBasedNumPartition;
-				System.out.println("replicate after modulo: " + replicatePartitionIndex);
+				replicatePartitionIndex = replicatePartitionIndex % zeroBasedNumPartition;	
 				partitionValue = partitionMapping[replicatePartitionIndex][0];
 				partitionDiskAssignment = partitionMapping[replicatePartitionIndex][1];
 			}
@@ -458,7 +470,12 @@ public class Server {
 		partitionMapping[replicatePartitionIndex][0]=filename;
 		partitionMapping[replicatePartitionIndex][2]="replicate 2";
 		partitionMapping[replicatePartitionIndex][3]=checkSumString;
-		//--> add to disk function
+		
+		try {
+			CopyToDisk(filename, partitionMapping[replicatePartitionIndex][1], Integer.parseInt(partitionMapping[replicatePartitionIndex][4]));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		
 	}
 	
@@ -498,13 +515,37 @@ public class Server {
 		for (int i = 0; i < mdbytes.length; i++) {
 			sb.append(Integer.toString((mdbytes[i] & 0xff) + 0x100, 16).substring(1));
 		}
-		 
-		//System.out.println("Digest(in hex format):: " + sb.toString());	 
+
+		fis.close();
 		return sb.toString();
 	}
-	
 
-	static void MyView(){
+	static void CopyToDisk(String filename, String drive, int port) throws Exception{
+		Socket toDriveSock = new Socket(drive, port);
+		OutputStream toDriveOs = toDriveSock.getOutputStream();
+		DataOutputStream toDriveDos = new DataOutputStream(toDriveOs);
+		toDriveDos.writeUTF("upload " + filename);
+		
+		File fileToDrive = new File("/tmp/" + filename);
+		byte[] toDriveByteArray = new byte[(int)fileToDrive.length()];
+		FileInputStream toDriveFis = new FileInputStream(fileToDrive);
+		BufferedInputStream toDriveBis = new BufferedInputStream(toDriveFis);
+		DataInputStream toDriveDis = new DataInputStream(toDriveBis);
+		toDriveDis.readFully(toDriveByteArray, 0, toDriveByteArray.length);
+		toDriveDos.writeLong(toDriveByteArray.length);
+		toDriveDos.write(toDriveByteArray, 0, toDriveByteArray.length);
+		
+		toDriveDos.flush();
+		toDriveDis.close();
+		toDriveDos.close();
+		toDriveOs.close();
+		toDriveSock.close();
+		System.out.println("File " + filename + " uploaded to disk " + drive);
+		System.out.println("");
+		
+	}
+
+ 	static void MyView(){
 		//--> Delete clean up
 		for (String s : diskList)
 			System.out.println(s);
