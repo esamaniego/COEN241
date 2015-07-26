@@ -45,6 +45,7 @@ public class Server {
 		
 		int port = findPort();
 		System.out.println("Port number is: " + port);
+		System.out.println("");
 		  
 		int bytesRead;  
 	    ServerSocket serverSocket = new ServerSocket(port);
@@ -162,6 +163,7 @@ public class Server {
 		
 		throw new IllegalStateException("Unable to find port");
 	}
+
 	
 	static void DeleteCommand(String filename){
 		String partitionValue;
@@ -210,7 +212,7 @@ public class Server {
 			fileList.add(filename);
 			SaveToPartitionMappingTable(filename, fileHashNum, neededPartition, checkSumString);
 		} else {
-			//-->Update existing file
+			UpdatePartionMappingTable(filename, fileHashNum, neededPartition, checkSumString);
 		}
 		
 		DisplayObject(filename);		
@@ -220,6 +222,7 @@ public class Server {
 	static void DownloadCommand(String filename){
 		DisplayObject(filename);
 	}
+	
 	
 	static void AddCommand(String disk){
 		String assignedDrive;
@@ -278,7 +281,6 @@ public class Server {
 	}
 	
 	
-	
 	static long FilenameHash(String filename){
 		
 		////////////////////////////////
@@ -327,8 +329,6 @@ public class Server {
 	    return xor_result;	
 	}
 	
-	
-
 	
 	static String asciiToHex(String asciiValue){
 		
@@ -475,6 +475,23 @@ public class Server {
 			CopyToDisk(filename, partitionMapping[replicatePartitionIndex][1], Integer.parseInt(partitionMapping[replicatePartitionIndex][4]));
 		} catch (Exception e) {
 			e.printStackTrace();
+		}
+		
+	}
+	
+	static void UpdatePartionMappingTable(String filename, long hash, int neededPartition, String checkSumString){
+		String currentFileName = "";
+		for (int i=0; i < numPartitions; i ++){
+			currentFileName = partitionMapping[i][0];
+			if (currentFileName != null && currentFileName.equals(filename)){
+				partitionMapping[i][3] = checkSumString;
+				
+				try {
+					CopyToDisk(filename, partitionMapping[i][1], Integer.parseInt(partitionMapping[i][4]));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
 		}
 		
 	}
