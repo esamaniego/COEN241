@@ -1,9 +1,12 @@
 //import java.io.BufferedOutputStream;
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 //import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -196,7 +199,7 @@ public class Server {
 		if (containsItem){
 			fileList.remove(filename);
 		} else {
-			System.out.println("File " + filename + " not found");
+			System.out.println("Unable to delete. File " + filename + " not found");
 		}
 			
 		System.out.println("");
@@ -238,11 +241,43 @@ public class Server {
 	static void DownloadCommand(String filename){
 		//DisplayObject(filename);
 		String currentFileName = "";
+		String expectedCheckSum = "";
+		String copiedFileCheckSum = "";
+		String badFilePort = "";
+		String badFileDrive = "";
 		for (int i=0; i < numPartitions; i ++){
 			currentFileName = partitionMapping[i][0];
 			if (currentFileName != null && currentFileName.equals(filename)){
 				try {
-					CopyFromDisk(filename, partitionMapping[i][1], Integer.parseInt(partitionMapping[i][4]), partitionMapping[i][2].substring(partitionMapping[i][2].length() - 1));
+					String replicaNum = partitionMapping[i][2].substring(partitionMapping[i][2].length() - 1);
+					CopyFromDisk(filename, partitionMapping[i][1], Integer.parseInt(partitionMapping[i][4]), replicaNum);
+					expectedCheckSum = partitionMapping[i][3];
+					//System.out.println("expected checksum: " + expectedCheckSum);
+					try {
+						copiedFileCheckSum = GetCheckSum("/tmp/" + filename + "_tmp");
+						//System.out.println("copiedd  checksum: " + copiedFileCheckSum);
+					} catch (Exception e) {
+						System.out.println("FileIO exception");
+						e.printStackTrace();
+					}
+					
+					if (copiedFileCheckSum.equals(expectedCheckSum)){
+						//System.out.println("File is good: " + partitionMapping[i][1]);
+						File oldName = new File("/tmp/" + filename + "_tmp");
+					    File newName = new File("/tmp/" + filename);
+					    if (newName.exists()) {
+					    	newName.delete();
+					    }
+					    oldName.renameTo(newName);
+					} else {
+						badFileDrive = partitionMapping[i][1];
+						badFilePort = partitionMapping[i][4];
+						//System.out.println("bad drive: " + badFileDrive);
+						//System.out.println("badport: " + badFilePort);
+					}
+					
+					
+					
 				} catch (NumberFormatException e) {
 					System.out.println("NumberFormatException " + e);
 					e.printStackTrace();
@@ -253,9 +288,41 @@ public class Server {
 			}
 		}//end for loop
 		
-		//both copy of files should have been downloaded to proxy. Do a checksum on both files.
-		//Update disk copy if necessary
-		//display file
+
+		//If corrupted file, update it
+		if (!badFileDrive.equals("")){
+			try {
+				CopyToDisk(filename, badFileDrive, Integer.parseInt(badFilePort));
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+				
+		//display file		
+		boolean containsItem = fileList.contains(filename);
+		if (containsItem){
+			BufferedReader br = null;
+			try {
+				br = new BufferedReader(new FileReader("/tmp/" + filename));
+			} catch (FileNotFoundException e1) {
+				System.out.println("FileNotFoundException generated: " + e1);
+				e1.printStackTrace();
+			}
+			String line = null;
+			try {
+				while ((line = br.readLine()) != null) {
+					System.out.println(line);
+				}
+			} catch (IOException e) {
+				System.out.println("IOException generated: " + e);
+				e.printStackTrace();
+			}
+
+		} else {
+			System.out.println("Unable to download. File " + filename + " not found");
+		}
+			
+		System.out.println("");
 		
 	}
 	
@@ -605,7 +672,7 @@ public class Server {
 		fromDriveDos.writeUTF("download " + filename);
 		InputStream fromDriveIs = fromDriveSock.getInputStream();
 		int fromDriveBytesRead;
-		OutputStream fromDriveOutput = new FileOutputStream("/tmp/" + filename + "_" + replica);
+		OutputStream fromDriveOutput = new FileOutputStream("/tmp/" + filename  + "_tmp");
 		DataInputStream fromDriveClientData = new DataInputStream(fromDriveIs);
 		long size = fromDriveClientData.readLong();
 		byte[] fromDriveBuffer = new byte[1024];
