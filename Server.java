@@ -128,15 +128,20 @@ public class Server {
 					DeleteCommand(newfilename);
 				} catch (Exception e) {
 					System.out.println("Exception: " + e);
-					e.printStackTrace();
+					
 				}
 	        } else if (command.startsWith("add")){
-	        	AddCommand(commandArg);
+	        	try {
+					AddCommand(commandArg);
+				} catch (Exception e) {
+					System.out.println("Exception generated: " + e);
+					System.out.println("Since file could not be moved to the new drive, no changes have been made. The new drive is not added. Please try again later");
+					
+				}
 	        } else if (command.startsWith("remove")){
 	        	RemoveCommand(commandArg);
 	        } else {
 	        	MyView();
-	        	//System.out.println("Unknown command: " + command + ". Unable to process");
 	        	System.out.println("");
 	        }
        
@@ -223,8 +228,8 @@ public class Server {
 		try {
 			checkSumString = GetCheckSum("/tmp/" + filename);
 		} catch (Exception e) {
-			System.out.println("FileIO exception");
-			e.printStackTrace();
+			System.out.println("Exception generated: " + e);
+			
 		}
 		
 		boolean containsItem = fileList.contains(filename);
@@ -258,8 +263,8 @@ public class Server {
 						copiedFileCheckSum = GetCheckSum("/tmp/" + filename + "_tmp");
 						//System.out.println("copiedd  checksum: " + copiedFileCheckSum);
 					} catch (Exception e) {
-						System.out.println("FileIO exception");
-						e.printStackTrace();
+						System.out.println("Exception generated: " + e);
+						
 					}
 					
 					if (copiedFileCheckSum.equals(expectedCheckSum)){
@@ -281,10 +286,10 @@ public class Server {
 					
 				} catch (NumberFormatException e) {
 					System.out.println("NumberFormatException " + e);
-					e.printStackTrace();
+					
 				} catch (Exception e) {
 					System.out.println("Exception " + e);
-					e.printStackTrace();
+					
 				}
 			}
 		}//end for loop
@@ -295,7 +300,8 @@ public class Server {
 			try {
 				CopyToDisk(filename, badFileDrive, Integer.parseInt(badFilePort));
 			} catch (Exception e) {
-				e.printStackTrace();
+				System.out.println("Exception " + e);
+				
 			}
 		}
 				
@@ -307,7 +313,7 @@ public class Server {
 				br = new BufferedReader(new FileReader("/tmp/" + filename));
 			} catch (FileNotFoundException e1) {
 				System.out.println("FileNotFoundException generated: " + e1);
-				e1.printStackTrace();
+				
 			}
 			String line = null;
 			try {
@@ -316,7 +322,7 @@ public class Server {
 				}
 			} catch (IOException e) {
 				System.out.println("IOException generated: " + e);
-				e.printStackTrace();
+				
 			}
 
 		} else {
@@ -328,36 +334,109 @@ public class Server {
 	}
 	
 	
-	static void AddCommand(String disk){
+	static void AddCommand(String disk)throws Exception{
 		String assignedDrive;
-		int index = 0;
-		int numPartitionForEachDrive = (int) numPartitions/(diskList.size() + 1);
-		int extra = numPartitionForEachDrive % diskList.size();
-		for (int i=0; i < numPartitions; i ++){
-			if(numPartitionForEachDrive == 0) {
-				break;
-			}
-			assignedDrive = partitionMapping[i][1];
-			if (assignedDrive.equals(diskList.get(index))){
-				partitionMapping[i][1] = disk;
-				numPartitionForEachDrive--;
-				extra--;
+		int currentDiskCount = diskList.size();
+		int newNumPartitionForEachDrive = (int) numPartitions/(currentDiskCount + 1);  //plus one since adding 1 extra disk
+		int currentNumParttionForEachDrive = (int) numPartitions/currentDiskCount;
+		int numOfPartitionsToGiveUp = currentNumParttionForEachDrive - newNumPartitionForEachDrive;
+		int countGivenUp = 0;
+		
+		System.out.println("Processing add disk...");
+		
+    	String diskPort = (disk.substring(disk.indexOf('/') + 1)).trim();
+    	disk = (disk.substring(0,disk.indexOf('/'))).trim();
+    	
+    	
+    	//test connection to new drive before continuing to make changes
+    	Socket toDriveSock;
+		toDriveSock = new Socket(disk, Integer.parseInt(diskPort));
+		OutputStream toDriveOs = toDriveSock.getOutputStream();
+		DataOutputStream toDriveDos = new DataOutputStream(toDriveOs);
+		toDriveDos.writeUTF("test connection ");
+		
+		toDriveDos.flush();
+		toDriveDos.close();
+		toDriveOs.close();
+		toDriveSock.close();	
+    	//end test connection to new drive
+		
+    	
+		
+		
+		for (int j=0; j < currentDiskCount; j++){
+			for (int i=0; i < numPartitions; i ++){
+				assignedDrive = partitionMapping[i][1];
+				if (assignedDrive.equals(diskList.get(j))){
+					
+					//case where partition is not empty
+					
+					if (partitionMapping[i][0] != null){
+						String currentCheckSum = partitionMapping[i][3];
+						String currentReplicaDesc = partitionMapping[i][2];
+						
+						String replicaDisk = FindReplicaDisk(currentCheckSum, currentReplicaDesc);
+						System.out.println("The other copy is in disk " + replicaDisk);
+						
+						if (!(replicaDisk.equals(disk))){  //avoid copying both replica to the new disk
+							//Move from old disk to new disk
+							String filename = partitionMapping[i][0];
+							try {
+								CopyFromDisk(filename, partitionMapping[i][1], Integer.parseInt(partitionMapping[i][4]), partitionMapping[i][2]);
+							} catch (NumberFormatException e) {
+								System.out.println("NumberFormatException generated: " + e);
+								
+							} catch (Exception e) {
+								System.out.println("Exception generated: " + e);
+								
+							}
 			
-				if (extra < 0){  //the extra partitions will be given up by disk[0]
-					if (index == (diskList.size()-1)){
-						index = 0;
-					} else {
-						index++;
+							File oldName = new File("/tmp/" + filename + "_tmp");  //file that is being move to the new drive
+							File newName = new File("/tmp/" + filename);
+							if (newName.exists()) {
+							    newName.delete();
+							}
+							oldName.renameTo(newName);
+							
+							try {
+								CopyToDisk(filename, disk, Integer.parseInt(diskPort));
+							} catch (Exception e) {
+								System.out.println("Exception generated: " + e);
+								
+							}
+							
+							//the table will be updated if the file is moved
+							partitionMapping[i][1] = disk;
+							partitionMapping[i][4] = diskPort;
+							countGivenUp++;
+							
+						} //end moving file to new drive
+						
+					} else { 	//end case where partition is not empty. if partition is not empty, just update the map table		
+						partitionMapping[i][1] = disk;
+						partitionMapping[i][4] = diskPort;
+						countGivenUp++;
+
 					}
+				}
+				if (countGivenUp == numOfPartitionsToGiveUp){
+					countGivenUp = 0;
+					break;
 				}
 			}
 		}
 		
-		diskList.add(disk);
 		
+		diskList.add(disk);
+		portList.add(diskPort);
+		
+		System.out.println("");
+		System.out.println("New partition table:");
+		System.out.println("============================================");
 		for (int i=0; i < numPartitions; i ++){
 			System.out.println("partion: " + i + " " + partitionMapping[i][1] + "   "  + partitionMapping[i][0] );
 		}
+		System.out.println("");
 	}
 	
 	
@@ -367,12 +446,16 @@ public class Server {
 		String filename;
 		int index = 0;
 		//diskList.remove(disk);  //remove the disk from the list
+		//String diskPort = (disk.substring(disk.indexOf('/') + 1)).trim();
+    	disk = (disk.substring(0,disk.indexOf('/'))).trim();
+		
+		
 		int arraylistIndex = diskList.indexOf(disk);
 		diskList.remove(arraylistIndex);
 		portList.remove(arraylistIndex);
 				
 		
-		for (int i=0; i < numPartitions; i ++){  //if equals to the disk to be removed, update the disk assignment by alternating between the remaining disk on the ist.
+		for (int i=0; i < numPartitions; i ++){  //if equals to the disk to be removed, update the disk assignment by alternating between the remaining disk on the list.
 			assignedDrive = partitionMapping[i][1];
 			
 			if (assignedDrive.equals(disk)){  //affected partition. Process it
@@ -398,9 +481,11 @@ public class Server {
 					try {
 						CopyFromDisk(filename, partitionMapping[i][1], Integer.parseInt(partitionMapping[i][4]), partitionMapping[i][2]);
 					} catch (NumberFormatException e) {
-						e.printStackTrace();
+						System.out.println("NumberFormatException generated: " + e);
+						
 					} catch (Exception e) {
-						e.printStackTrace();
+						System.out.println("Exception generated: " + e);
+						
 					}
 	
 					File oldName = new File("/tmp/" + filename + "_tmp");  //file from the soon to be removed disk
@@ -413,7 +498,8 @@ public class Server {
 					try {
 						CopyToDisk(filename, diskList.get(index), Integer.parseInt(portList.get(index)));
 					} catch (Exception e) {
-						e.printStackTrace();
+						System.out.println("Exception generated: " + e);
+						
 					}
 				}
 				//end of start of non-empty partition
@@ -433,6 +519,8 @@ public class Server {
 		}
 		
 		System.out.println("");
+		System.out.println("New partition table:");
+		System.out.println("============================================");
 		for (int i=0; i < numPartitions; i ++){
 			System.out.println("partion: " + i + " " + partitionMapping[i][1] + "   "  + partitionMapping[i][0] );
 		}
@@ -584,7 +672,8 @@ public class Server {
 			try {
 				CopyToDisk(filename, diskSaved, portSaved);
 			} catch (Exception e) {
-				e.printStackTrace();
+				System.out.println("Exception generated: " + e);
+				
 			}
 			
 			
@@ -633,7 +722,8 @@ public class Server {
 		try {
 			CopyToDisk(filename, partitionMapping[replicatePartitionIndex][1], Integer.parseInt(partitionMapping[replicatePartitionIndex][4]));
 		} catch (Exception e) {
-			e.printStackTrace();
+			System.out.println("Exception generated: " + e);
+			
 		}
 		
 	}
@@ -648,7 +738,8 @@ public class Server {
 				try {
 					CopyToDisk(filename, partitionMapping[i][1], Integer.parseInt(partitionMapping[i][4]));
 				} catch (Exception e) {
-					e.printStackTrace();
+					System.out.println("Exception generated: " + e);
+					
 				}
 			}
 		}
